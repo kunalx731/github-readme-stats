@@ -97,6 +97,9 @@ export const summarize = (user) => {
       start: w.contributionDays[0].date,
       count: sum(w.contributionDays.map((d) => d.contributionCount)),
     })),
+    calendar: cal.weeks.map((w) =>
+      w.contributionDays.map((d) => ({ date: d.date, count: d.contributionCount, weekday: d.weekday })),
+    ),
     weekday,
     prs: user.pullRequests.totalCount,
     issues: user.issues.totalCount,
