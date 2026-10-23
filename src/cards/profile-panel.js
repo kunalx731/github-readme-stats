@@ -6,7 +6,7 @@ const FONT =
 
 const THEMES = {
   dark: {
-    panel: "#0f1115",
+    panel: "#111214",
     border: "rgba(255,255,255,0.10)",
     text: "#f5f5f7",
     sub: "#8b8b93",
@@ -19,7 +19,7 @@ const THEMES = {
   },
   light: {
     panel: "#ffffff",
-    border: "rgba(0,0,0,0.10)",
+    border: "rgba(0,0,0,0.08)",
     text: "#1d1d1f",
     sub: "#6e6e73",
     faint: "#a1a1a6",
@@ -33,7 +33,7 @@ const THEMES = {
 
 const W = 1200;
 const H = 610;
-const PAD = 44;
+const PAD = 56;
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LONG_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -114,8 +114,8 @@ export const renderProfilePanel = (s, mode) => {
         ? `<line x1="${f1(PAD + i * colW)}" y1="104" x2="${f1(PAD + i * colW)}" y2="200" stroke="${t.grid}"/>`
         : "";
       return `${divider}<g class="rise" style="animation-delay:${(0.15 + i * 0.08).toFixed(2)}s">
-        <text x="${f1(x)}" y="122" font-size="12.5" font-weight="600" letter-spacing="1.4" fill="${t.sub}">${label.toUpperCase()}</text>
-        <text x="${f1(x)}" y="170" font-size="46" font-weight="600" letter-spacing="-1.6" fill="${t.text}" class="num">${value}</text>
+        <text x="${f1(x)}" y="122" font-size="15" font-weight="600" fill="${t.sub}">${label}</text>
+        <text x="${f1(x)}" y="170" font-size="48" font-weight="600" letter-spacing="-1.8" fill="${t.text}" class="num">${value}</text>
         <g transform="translate(${f1(x)},198)">${sub}</g></g>`;
     })
     .join("");
@@ -155,7 +155,6 @@ export const renderProfilePanel = (s, mode) => {
     <path d="${area}" fill="url(#areafill)" class="fade" style="animation-delay:1.2s"/>
     <path d="${line}" stroke="${t.accent}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1" class="draw"/>
     <g class="fade" style="animation-delay:1.9s">
-      <line x1="${f1(pkx)}" y1="${f1(pky + 8)}" x2="${f1(pkx)}" y2="${cy1}" stroke="${t.accent}" stroke-opacity=".35" stroke-dasharray="2 4"/>
       <circle cx="${f1(pkx)}" cy="${f1(pky)}" r="5" fill="${t.panel}" stroke="${t.accent}" stroke-width="2.5"/>
       <text x="${f1(pkx)}" y="${f1(pky - 14)}" text-anchor="${peakAnchor}" font-size="13" font-weight="600" fill="${t.text}">${peakLabel}</text>
     </g>
@@ -212,8 +211,8 @@ export const renderProfilePanel = (s, mode) => {
     timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
   const header = `
-    <text x="${PAD}" y="56" font-size="22" font-weight="600" letter-spacing="-.4" fill="${t.text}">Activity</text>
-    <text x="${PAD + 92}" y="56" font-size="15" fill="${t.sub}">Last 12 months</text>
+    <text x="${PAD}" y="56" font-size="26" font-weight="600" letter-spacing="-.6" fill="${t.text}">Activity</text>
+    <text x="${PAD + 106}" y="56" font-size="15" fill="${t.sub}">Last 12 months</text>
     <g transform="translate(${W - PAD - 232},36)">
       <rect width="232" height="30" rx="15" fill="${t.up}" fill-opacity=".1"/>
       <circle cx="18" cy="15" r="7" fill="${t.up}" class="pulse"/>
@@ -225,15 +224,15 @@ export const renderProfilePanel = (s, mode) => {
   const css = `
     text { font-family: ${FONT}; }
     .num { font-variant-numeric: tabular-nums; }
-    .rise { opacity: 0; animation: rise .9s cubic-bezier(.2,.8,.2,1) forwards; }
-    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .rise { opacity: 0; animation: rise 1.2s cubic-bezier(.16,1,.3,1) forwards; }
+    @keyframes rise { from { opacity: 0; transform: translateY(16px); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
     .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.8s cubic-bezier(.65,0,.35,1) .45s forwards; }
     @keyframes draw { to { stroke-dashoffset: 0; } }
     .fade { opacity: 0; animation: fade .8s ease forwards; }
     @keyframes fade { to { opacity: 1; } }
-    .grow { transform-box: fill-box; transform-origin: left; transform: scaleX(0); animation: grow 1.3s cubic-bezier(.2,.8,.2,1) .8s forwards; }
+    .grow { transform-box: fill-box; transform-origin: left; transform: scaleX(0); animation: grow 1.4s cubic-bezier(.16,1,.3,1) .8s forwards; }
     @keyframes grow { to { transform: scaleX(1); } }
-    .bar { transform-box: fill-box; transform-origin: bottom; transform: scaleY(0); animation: bar .8s cubic-bezier(.2,.8,.2,1) forwards; }
+    .bar { transform-box: fill-box; transform-origin: bottom; transform: scaleY(0); animation: bar 1.1s cubic-bezier(.16,1,.3,1) forwards; }
     @keyframes bar { to { transform: scaleY(1); } }
     .pulse { transform-box: fill-box; transform-origin: center; opacity: .35; animation: pulse 2.4s ease-out infinite; }
     @keyframes pulse { from { transform: scale(.6); opacity: .5; } to { transform: scale(2.2); opacity: 0; } }
