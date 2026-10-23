@@ -1,19 +1,41 @@
 // @ts-check
-// Live stats strip for the kunalx731 profile README, in the style of its hero:
-// three large numbers over a thin Siri-gradient trend line.
+// Apple-style activity panel for the kunalx731 profile README.
 
-import { INTER_FONT_FACES } from "./inter-font.js";
+const FONT =
+  "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI Variable Display', 'Segoe UI', 'Helvetica Neue', Inter, Arial, sans-serif";
 
 const THEMES = {
-  dark: { bg: "#000000", border: "rgba(255,255,255,0.12)", text: "#f5f5f7", sub: "#86868b", live: "#30d158", fill: 0.22 },
-  light: { bg: "#f5f5f7", border: "rgba(0,0,0,0)", text: "#1d1d1f", sub: "#6e6e73", live: "#248a3d", fill: 0.16 },
+  dark: {
+    panel: "#111214",
+    border: "rgba(255,255,255,0.10)",
+    text: "#f5f5f7",
+    sub: "#8b8b93",
+    faint: "#5c5c63",
+    grid: "rgba(255,255,255,0.07)",
+    accent: "#0a84ff",
+    up: "#30d158",
+    down: "#ff453a",
+    muted: "#2a2c31",
+  },
+  light: {
+    panel: "#ffffff",
+    border: "rgba(0,0,0,0.08)",
+    text: "#1d1d1f",
+    sub: "#6e6e73",
+    faint: "#a1a1a6",
+    grid: "rgba(0,0,0,0.06)",
+    accent: "#0071e3",
+    up: "#248a3d",
+    down: "#d70015",
+    muted: "#e8e8ed",
+  },
 };
-const SIRI = ["#0894ff", "#c959dd", "#ff2e54", "#ff9004"];
 
 const W = 1200;
-const H = 340;
-const PAD = 64;
-const EASE = "cubic-bezier(.16,1,.3,1)";
+const H = 610;
+const PAD = 56;
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const LONG_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 const esc = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -52,82 +74,188 @@ const smoothPath = (pts) => {
   return d;
 };
 
+const niceMax = (v) => {
+  if (v <= 0) return 10;
+  const p = 10 ** Math.floor(Math.log10(v));
+  return [1, 2, 2.5, 5, 10].map((s) => s * p).find((s) => s >= v) ?? 10 * p;
+};
+
 /**
  * @param {ReturnType<typeof import("../fetchers/profile.js").summarize>} s
  * @param {"dark" | "light"} mode
  */
 export const renderProfilePanel = (s, mode) => {
   const t = THEMES[mode] ?? THEMES.dark;
+  const colW = (W - 2 * PAD) / 4;
 
-  const stats = [
-    [fmt(s.total), "contributions this year"],
-    [`${s.longest}`, "day longest streak"],
-    [fmt(s.prs), "pull requests"],
+  // ---- KPIs
+  const delta = s.prev30 ? (s.last30 - s.prev30) / s.prev30 : null;
+  const deltaPill =
+    delta === null
+      ? `<text x="0" y="0" font-size="15" fill="${t.sub}">vs. previous 30 days</text>`
+      : (() => {
+          const up = delta >= 0;
+          const label = `${up ? "▲" : "▼"} ${Math.abs(delta * 100).toFixed(0)}%`;
+          const w = 16 + label.length * 8.6;
+          return `<rect x="0" y="-16" width="${f1(w)}" height="24" rx="12" fill="${up ? t.up : t.down}" fill-opacity="0.14"/>
+            <text x="${f1(w / 2)}" y="1" text-anchor="middle" font-size="13" font-weight="600" fill="${up ? t.up : t.down}">${label}</text>
+            <text x="${f1(w + 10)}" y="1" font-size="15" fill="${t.sub}">vs. prior 30 days</text>`;
+        })();
+  const kpis = [
+    ["Contributions", fmt(s.total), `<text x="0" y="0" font-size="15" fill="${t.sub}">${fmt(Math.round(s.total / 52))} per week on average</text>`],
+    ["Last 30 days", fmt(s.last30), deltaPill],
+    ["Current streak", `${s.current}<tspan font-size="22" font-weight="500" fill="${t.sub}" dx="6">days</tspan>`, `<text x="0" y="0" font-size="15" fill="${t.sub}">Longest this year: ${s.longest} days</text>`],
+    ["Pull requests", fmt(s.prs), `<text x="0" y="0" font-size="15" fill="${t.sub}">${fmt(s.issues)} issues · ${fmt(s.repos)} repositories</text>`],
   ];
-  const colW = (W - 2 * PAD) / 3;
-  const numbers = stats
-    .map(
-      ([value, label], i) => `
-    <g class="in" style="animation-delay:${(0.15 + i * 0.12).toFixed(2)}s">
-      <text x="${f1(PAD + i * colW)}" y="132" font-size="76" font-weight="600" letter-spacing="-3" fill="${t.text}" class="num">${esc(value)}</text>
-      <text x="${f1(PAD + i * colW)}" y="172" font-size="21" font-weight="400" fill="${t.sub}">${esc(label)}</text>
-    </g>`,
-    )
+  const kpiSvg = kpis
+    .map(([label, value, sub], i) => {
+      const x = PAD + i * colW + (i ? 28 : 0);
+      const divider = i
+        ? `<line x1="${f1(PAD + i * colW)}" y1="104" x2="${f1(PAD + i * colW)}" y2="200" stroke="${t.grid}"/>`
+        : "";
+      return `${divider}<g class="rise" style="animation-delay:${(0.15 + i * 0.08).toFixed(2)}s">
+        <text x="${f1(x)}" y="122" font-size="15" font-weight="600" fill="${t.sub}">${label}</text>
+        <text x="${f1(x)}" y="170" font-size="48" font-weight="600" letter-spacing="-1.8" fill="${t.text}" class="num">${value}</text>
+        <g transform="translate(${f1(x)},198)">${sub}</g></g>`;
+    })
     .join("");
 
-  // weekly trend, full-bleed along the bottom of the card
-  const y0 = 214, y1 = H - 26;
-  const weeks = s.weekly.map((w) => w.count);
-  const max = Math.max(...weeks, 1);
-  const pts = weeks.map((c, i) => [(i / (weeks.length - 1)) * W, y1 - (c / max) * (y1 - y0)]);
+  // ---- weekly trend
+  const cx0 = PAD, cx1 = W - PAD - 44, cy0 = 292, cy1 = 442;
+  const weeks = s.weekly;
+  const top = niceMax(Math.max(...weeks.map((w) => w.count)));
+  const px = (i) => cx0 + (i / (weeks.length - 1)) * (cx1 - cx0);
+  const py = (v) => cy1 - (v / top) * (cy1 - cy0);
+  const pts = weeks.map((w, i) => [px(i), py(w.count)]);
   const line = smoothPath(pts);
-  const area = `${line} L${W},${H} L0,${H} Z`;
+  const area = `${line} L${f1(cx1)},${cy1} L${f1(cx0)},${cy1} Z`;
+  const grid = [0, 0.5, 1]
+    .map(
+      (f) => `<line x1="${cx0}" y1="${f1(py(top * f))}" x2="${cx1}" y2="${f1(py(top * f))}" stroke="${t.grid}" ${f ? 'stroke-dasharray="2 5"' : ""}/>
+      <text x="${W - PAD}" y="${f1(py(top * f) + 4)}" text-anchor="end" font-size="12" fill="${t.faint}" class="num">${fmt(top * f)}</text>`,
+    )
+    .join("");
+  let lastMonth = "";
+  const months = weeks
+    .map((w, i) => {
+      const m = new Date(`${w.start}T00:00:00Z`).toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+      if (m === lastMonth || i > weeks.length - 3) return "";
+      lastMonth = m;
+      return `<text x="${f1(px(i))}" y="${cy1 + 24}" font-size="12" fill="${t.faint}">${m}</text>`;
+    })
+    .join("");
+  const peakIdx = weeks.reduce((b, w, i) => (w.count > weeks[b].count ? i : b), 0);
+  const [pkx, pky] = pts[peakIdx];
+  const peakLabel = `Peak · ${fmt(weeks[peakIdx].count)}`;
+  const peakAnchor = pkx > W - 240 ? "end" : pkx < 160 ? "start" : "middle";
+  const lastPt = pts[pts.length - 1];
+  const trend = `
+    <text x="${PAD}" y="${cy0 - 26}" font-size="15" font-weight="600" fill="${t.text}">Weekly contributions</text>
+    ${grid}${months}
+    <path d="${area}" fill="url(#areafill)" class="fade" style="animation-delay:1.2s"/>
+    <path d="${line}" stroke="${t.accent}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1" class="draw"/>
+    <g class="fade" style="animation-delay:1.9s">
+      <circle cx="${f1(pkx)}" cy="${f1(pky)}" r="5" fill="${t.panel}" stroke="${t.accent}" stroke-width="2.5"/>
+      <text x="${f1(pkx)}" y="${f1(pky - 14)}" text-anchor="${peakAnchor}" font-size="13" font-weight="600" fill="${t.text}">${peakLabel}</text>
+    </g>
+    <g class="fade" style="animation-delay:2.1s">
+      <circle cx="${f1(lastPt[0])}" cy="${f1(lastPt[1])}" r="9" fill="${t.accent}" class="pulse"/>
+      <circle cx="${f1(lastPt[0])}" cy="${f1(lastPt[1])}" r="4.5" fill="${t.accent}"/>
+    </g>`;
 
+  // ---- languages
+  const halfW = (W - 2 * PAD - 64) / 2;
+  const by = 532;
+  let bx = 0, lx = 0;
+  const segs = [], legend = [];
+  s.langs.forEach(({ name, share, color }) => {
+    const w = halfW * share;
+    segs.push(`<rect x="${f1(bx)}" y="0" width="${f1(w + 0.5)}" height="6" fill="${color}"/>`);
+    bx += w;
+    const pct = `${(share * 100).toFixed(0)}%`;
+    legend.push(`<circle cx="${f1(lx + 4)}" cy="31" r="4" fill="${color}"/>
+      <text x="${f1(lx + 14)}" y="36" font-size="14" fill="${t.text}">${esc(name)}<tspan fill="${t.sub}" dx="6">${pct}</tspan></text>`);
+    lx += 14 + (name.length + pct.length) * 8 + 26;
+  });
+  const languages = `
+    <g class="rise" style="animation-delay:.6s">
+      <text x="${PAD}" y="${by - 22}" font-size="15" font-weight="600" fill="${t.text}">Languages</text>
+      <g transform="translate(${PAD},${by})">
+        <clipPath id="lbar"><rect width="${f1(halfW)}" height="6" rx="3"/></clipPath>
+        <rect width="${f1(halfW)}" height="6" rx="3" fill="${t.muted}"/>
+        <g clip-path="url(#lbar)"><g class="grow">${segs.join("")}</g></g>
+        ${legend.join("")}
+      </g>
+    </g>`;
+
+  // ---- weekday rhythm
+  const wx = PAD + halfW + 64;
+  const maxDay = Math.max(...s.weekday, 1);
+  const best = s.weekday.indexOf(maxDay);
+  const slot = halfW / 7;
+  const bars = s.weekday
+    .map((v, i) => {
+      const h = Math.max(4, (v / maxDay) * 44);
+      const x = wx + i * slot + slot / 2 - 9;
+      return `<rect x="${f1(x)}" y="${f1(by + 30 - h)}" width="18" height="${f1(h)}" rx="4" fill="${i === best ? t.accent : t.muted}" class="bar" style="animation-delay:${(0.9 + i * 0.05).toFixed(2)}s"/>
+        <text x="${f1(x + 9)}" y="${by + 52}" text-anchor="middle" font-size="12" fill="${i === best ? t.text : t.faint}">${WEEKDAYS[i]}</text>`;
+    })
+    .join("");
+  const rhythm = `
+    <g class="rise" style="animation-delay:.7s">
+      <text x="${f1(wx)}" y="${by - 22}" font-size="15" font-weight="600" fill="${t.text}">Rhythm<tspan fill="${t.sub}" font-weight="400" dx="8">Most active on ${LONG_WEEKDAYS[best]}s</tspan></text>
+    </g>${bars}`;
+
+  // ---- header
   const updated = new Date().toLocaleString("en-GB", {
     timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
   });
+  const header = `
+    <text x="${PAD}" y="56" font-size="26" font-weight="600" letter-spacing="-.6" fill="${t.text}">Activity</text>
+    <text x="${PAD + 106}" y="56" font-size="15" fill="${t.sub}">Last 12 months</text>
+    <g transform="translate(${W - PAD - 232},36)">
+      <rect width="232" height="30" rx="15" fill="${t.up}" fill-opacity=".1"/>
+      <circle cx="18" cy="15" r="7" fill="${t.up}" class="pulse"/>
+      <circle cx="18" cy="15" r="3.5" fill="${t.up}"/>
+      <text x="32" y="20" font-size="13" font-weight="500" fill="${t.text}">Live<tspan fill="${t.sub}" font-weight="400"> · Updated ${esc(updated)} IST</tspan></text>
+    </g>
+    <line x1="${PAD}" y1="84" x2="${W - PAD}" y2="84" stroke="${t.grid}"/>`;
 
   const css = `
-    ${INTER_FONT_FACES}
-    text { font-family: 'Inter KK', -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif; }
+    text { font-family: ${FONT}; }
     .num { font-variant-numeric: tabular-nums; }
-    .in { opacity: 0; animation: in 1.4s ${EASE} forwards; }
-    @keyframes in { from { opacity: 0; transform: translateY(20px); filter: blur(10px); } to { opacity: 1; transform: none; filter: blur(0); } }
-    .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 2.4s ${EASE} .5s forwards; }
+    .rise { opacity: 0; animation: rise 1.2s cubic-bezier(.16,1,.3,1) forwards; }
+    @keyframes rise { from { opacity: 0; transform: translateY(16px); filter: blur(8px); } to { opacity: 1; transform: none; filter: blur(0); } }
+    .draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.8s cubic-bezier(.65,0,.35,1) .45s forwards; }
     @keyframes draw { to { stroke-dashoffset: 0; } }
-    .fade { opacity: 0; animation: fade 1.6s ease 1.2s forwards; }
+    .fade { opacity: 0; animation: fade .8s ease forwards; }
     @keyframes fade { to { opacity: 1; } }
-    .pulse { transform-box: fill-box; transform-origin: center; animation: pulse 2.4s ease-out infinite; }
-    @keyframes pulse { from { transform: scale(.6); opacity: .6; } to { transform: scale(2.4); opacity: 0; } }
+    .grow { transform-box: fill-box; transform-origin: left; transform: scaleX(0); animation: grow 1.4s cubic-bezier(.16,1,.3,1) .8s forwards; }
+    @keyframes grow { to { transform: scaleX(1); } }
+    .bar { transform-box: fill-box; transform-origin: bottom; transform: scaleY(0); animation: bar 1.1s cubic-bezier(.16,1,.3,1) forwards; }
+    @keyframes bar { to { transform: scaleY(1); } }
+    .pulse { transform-box: fill-box; transform-origin: center; opacity: .35; animation: pulse 2.4s ease-out infinite; }
+    @keyframes pulse { from { transform: scale(.6); opacity: .5; } to { transform: scale(2.2); opacity: 0; } }
     @media (prefers-reduced-motion: reduce) {
-      .in, .fade { animation: none !important; opacity: 1 !important; }
+      .rise, .fade { animation: none !important; opacity: 1 !important; }
       .draw { animation: none !important; stroke-dashoffset: 0 !important; }
+      .grow, .bar { animation: none !important; transform: none !important; }
       .pulse { animation: none !important; opacity: 0 !important; }
     }`;
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" role="img" aria-label="${fmt(s.total)} contributions this year, ${s.longest} day longest streak, ${fmt(s.prs)} pull requests">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" role="img" aria-label="${fmt(s.total)} contributions in the last year">
   <style>${css}</style>
   <defs>
-    <clipPath id="card-${mode}"><rect width="${W}" height="${H}" rx="36"/></clipPath>
-    <linearGradient id="stroke-${mode}" x1="0" y1="0" x2="${W}" y2="0" gradientUnits="userSpaceOnUse">
-      ${SIRI.map((c, i) => `<stop offset="${(i / (SIRI.length - 1)).toFixed(2)}" stop-color="${c}"/>`).join("")}
+    <linearGradient id="areafill" x1="0" y1="${cy0}" x2="0" y2="${cy1}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="${t.accent}" stop-opacity=".28"/>
+      <stop offset="1" stop-color="${t.accent}" stop-opacity="0"/>
     </linearGradient>
-    <linearGradient id="fade-${mode}" x1="0" y1="${y0}" x2="0" y2="${H}" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
-    </linearGradient>
-    <mask id="areamask-${mode}"><rect width="${W}" height="${H}" fill="url(#fade-${mode})"/></mask>
   </defs>
-  <g clip-path="url(#card-${mode})">
-    <rect width="${W}" height="${H}" fill="${t.bg}"/>
-    <path d="${area}" fill="url(#stroke-${mode})" fill-opacity="${t.fill}" mask="url(#areamask-${mode})" class="fade"/>
-    <path d="${line}" stroke="url(#stroke-${mode})" stroke-width="2.5" stroke-linecap="round" pathLength="1" class="draw"/>
-  </g>
-  <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="35.5" stroke="${t.border}"/>
-  ${numbers}
-  <g class="in" style="animation-delay:.6s">
-    <circle cx="${W - PAD - 6}" cy="58" r="5" fill="${t.live}" class="pulse"/>
-    <circle cx="${W - PAD - 6}" cy="58" r="4" fill="${t.live}"/>
-    <text x="${W - PAD - 20}" y="64" text-anchor="end" font-size="16" fill="${t.sub}">Live · ${esc(updated)} IST</text>
-  </g>
+  <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="28" fill="${t.panel}" stroke="${t.border}"/>
+  <g class="rise">${header}</g>
+  ${kpiSvg}
+  <g class="rise" style="animation-delay:.35s">${trend}</g>
+  ${languages}
+  ${rhythm}
 </svg>`;
 };
